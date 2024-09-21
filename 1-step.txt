@@ -160,3 +160,159 @@ With these foundational steps completed, you will have a functional Flask app th
 - Set up background job scheduling for sending reminders.
 
 Let me know when you're ready to continue or if you need help with any part!
+
+
+Let's continue by implementing the task creation, email sending via Twilio SendGrid, and background job scheduling for reminders.
+
+### Step 5: Implement Task Creation for Reminders
+1. **Create a Task model** in `app/models.py` to represent reminders:
+   ```python
+   from datetime import datetime
+   from app import db
+
+   class Task(db.Model):
+       id = db.Column(db.Integer, primary_key=True)
+       title = db.Column(db.String(200), nullable=False)
+       description = db.Column(db.Text, nullable=True)
+       due_date = db.Column(db.DateTime, nullable=False)
+       user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+       reminder_sent = db.Column(db.Boolean, default=False)
+   ```
+
+2. **Add a form for creating tasks** in `app/forms.py`:
+   ```python
+   from wtforms import StringField, TextAreaField, DateTimeField
+   from wtforms.validators import DataRequired
+
+   class TaskForm(FlaskForm):
+       title = StringField('Title', validators=[DataRequired()])
+       description = TextAreaField('Description')
+       due_date = DateTimeField('Due Date (YYYY-MM-DD HH:MM)', format='%Y-%m-%d %H:%M', validators=[DataRequired()])
+       submit = SubmitField('Create Task')
+   ```
+
+3. **Create the view for adding a task** in `app/routes.py`:
+   ```python
+   from flask_login import current_user
+   from datetime import datetime
+
+   @app.route('/task/new', methods=['GET', 'POST'])
+   @login_required
+   def new_task():
+       form = TaskForm()
+       if form.validate_on_submit():
+           task = Task(title=form.title.data, description=form.description.data,
+                       due_date=form.due_date.data, user_id=current_user.id)
+           db.session.add(task)
+           db.session.commit()
+           flash('Task created successfully!')
+           return redirect(url_for('dashboard'))
+       return render_template('new_task.html', form=form)
+   ```
+
+4. **Display tasks on the dashboard** in `app/routes.py`:
+   ```python
+   @app.route('/dashboard')
+   @login_required
+   def dashboard():
+       tasks = Task.query.filter_by(user_id=current_user.id).all()
+       return render_template('dashboard.html', tasks=tasks)
+   ```
+
+5. **Create templates** for adding tasks and displaying them on the dashboard:
+   - **`new_task.html`**: Form for adding tasks
+   - **`dashboard.html`**: Display a list of tasks
+
+### Step 6: Integrate Twilio SendGrid to Send Emails
+1. **Install SendGrid API**:
+   ```bash
+   pip install sendgrid
+   ```
+
+2. **Create a utility function** for sending reminder emails in `app/email.py`:
+   ```python
+   import os
+   from sendgrid import SendGridAPIClient
+   from sendgrid.helpers.mail import Mail
+
+   def send_reminder_email(user_email, task_title, task_due_date):
+       message = Mail(
+           from_email='your-email@example.com',
+           to_emails=user_email,
+           subject='Reminder: Task Due Soon',
+           html_content=f'<strong>Your task "{task_title}" is due on {task_due_date}.</strong>')
+       try:
+           sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+           response = sg.send(message)
+           print(response.status_code)
+       except Exception as e:
+           print(f"Error sending email: {str(e)}")
+   ```
+
+3. **Send the email when the task is created**:
+   Modify the `new_task` route to send a confirmation email after creating a task:
+   ```python
+   from app.email import send_reminder_email
+
+   @app.route('/task/new', methods=['GET', 'POST'])
+   @login_required
+   def new_task():
+       form = TaskForm()
+       if form.validate_on_submit():
+           task = Task(title=form.title.data, description=form.description.data,
+                       due_date=form.due_date.data, user_id=current_user.id)
+           db.session.add(task)
+           db.session.commit()
+           send_reminder_email(current_user.email, task.title, task.due_date)
+           flash('Task created successfully and reminder email sent!')
+           return redirect(url_for('dashboard'))
+       return render_template('new_task.html', form=form)
+   ```
+
+### Step 7: Schedule Reminders with APScheduler
+1. **Configure the scheduler to send reminders at intervals**. Add a background job that checks for tasks due soon and sends reminders.
+   
+   In `app/routes.py`, create a helper function that schedules reminders for upcoming tasks:
+   ```python
+   from datetime import timedelta
+   from app import scheduler
+
+   def check_due_tasks():
+       tasks = Task.query.filter(Task.due_date >= datetime.utcnow(),
+                                 Task.due_date <= datetime.utcnow() + timedelta(hours=1),
+                                 Task.reminder_sent == False).all()
+       for task in tasks:
+           user = User.query.get(task.user_id)
+           send_reminder_email(user.email, task.title, task.due_date)
+           task.reminder_sent = True
+           db.session.commit()
+
+   # Schedule the task checker to run every 10 minutes
+   scheduler.add_job(func=check_due_tasks, trigger="interval", minutes=10)
+   ```
+
+2. **Start the APScheduler** in `app/__init__.py`:
+   ```python
+   scheduler = BackgroundScheduler()
+   scheduler.start()
+   ```
+
+### Step 8: Migrate and Run the App
+1. **Set up the database** by creating migrations:
+   ```bash
+   flask db init
+   flask db migrate -m "Initial migration"
+   flask db upgrade
+   ```
+
+2. **Run the application**:
+   ```bash
+   python run.py
+   ```
+
+At this point, your app should:
+- Allow users to create tasks with due dates.
+- Send confirmation emails when tasks are created.
+- Automatically check for tasks due soon and send reminder emails to users.
+
+Would you like more help with deployment or adding features?
