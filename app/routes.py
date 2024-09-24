@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 from app import scheduler
 
 
+@app.route('/', methods=['GET'])
+def root():
+    return "Hello world "
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegistrationForm
