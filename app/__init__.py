@@ -11,10 +11,15 @@ app.config.from_object('config.Config')
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
+
+login_manager = LoginManager()
+login_manager.init_app(app)
 
 scheduler = BackgroundScheduler()
 scheduler.start()
 
-# from app import routes, models
+from app import routes, models
+
+@login_manager.user_loader
+def load_user(user_id):
+    return models.User.query.get(int(user_id))

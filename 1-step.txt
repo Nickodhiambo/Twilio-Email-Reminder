@@ -316,3 +316,49 @@ At this point, your app should:
 - Automatically check for tasks due soon and send reminder emails to users.
 
 Would you like more help with deployment or adding features?
+
+The error `AttributeError: 'str' object has no attribute 'id'` typically means that somewhere in your code, a string is being treated as if it were a `User` object (which should have an `id` attribute). This often happens when Flask-Login is trying to load a user from the session, but you're not returning a valid `User` object in the user loader function.
+
+To fix this, you need to ensure that your Flask-Login `user_loader` is correctly loading a `User` object from the database, not just a string.
+
+### Steps to Resolve:
+
+1. **Check Your `user_loader` Function**
+   Flask-Login requires a `user_loader` function to reload the user object from the stored session ID. This function should query the database and return the correct `User` object based on the user's ID.
+
+   Here's an example of how to implement the `user_loader` function:
+
+   ```python
+   from flask_login import LoginManager
+   from app.models import User
+
+   login_manager = LoginManager()
+
+   @login_manager.user_loader
+   def load_user(user_id):
+       # Flask-Login passes the user_id (a string) to this function
+       # You should return a User object from the database based on this user_id
+       return User.query.get(int(user_id))
+   ```
+
+   In this code:
+   - `load_user` receives the `user_id` (which Flask-Login stores as a string in the session).
+   - You convert the `user_id` to an integer (`int(user_id)`) and query the database to retrieve the `User` object.
+   - If the user is found, it returns the `User` object; otherwise, it returns `None`.
+
+2. **Ensure the `get_id` Method Returns a String**
+   You've already correctly implemented the `get_id` method in your `User` model. This ensures that the `id` is stored in the session as a string. 
+
+   ```python
+   def get_id(self):
+       return str(self.id)
+   ```
+
+### Key Points to Check:
+- Ensure that when a user logs in, their `User` object is correctly passed to `login_user(user)`.
+- Ensure the `user_loader` function correctly retrieves a `User` object from the session's stored ID.
+  
+### Additional Troubleshooting:
+- If the error still occurs, check where you're using `current_user.id` or `user.id`. Ensure that `current_user` is actually a `User` object and not a string or some other type.
+
+Let me know if this helps resolve the issue!

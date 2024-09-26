@@ -9,6 +9,9 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(50), nullable=False)
 
+    def get_id(self):
+        return str(self.id)
+
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
