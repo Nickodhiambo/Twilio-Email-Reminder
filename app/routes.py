@@ -44,7 +44,7 @@ def logout():
 
 
 @app.route('/task/new', methods = ['GET', 'POST'])
-# @login_required
+@login_required
 def new_task():
     form = TaskForm()
     if form.validate_on_submit():
