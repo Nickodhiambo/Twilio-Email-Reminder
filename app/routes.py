@@ -1,10 +1,10 @@
 from flask import render_template, url_for, redirect, flash
 from app import app, db
 from app.forms import RegistrationForm, LoginForm, TaskForm
-from app.email import send_reminder_email
 from app.models import User, Task
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
+from app.email import send_reminder_email
 from app import scheduler
 
 

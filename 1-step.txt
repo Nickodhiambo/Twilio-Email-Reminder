@@ -317,3 +317,40 @@ At this point, your app should:
 
 Would you like more help with deployment or adding features?
 
+The logic in the `check_due_tasks` function is querying a database for tasks that are due within the next hour and haven't had their reminder sent yet. Let's break it down:
+
+### Code Breakdown:
+```python
+def check_due_tasks():
+    tasks = Task.query.filter_by(
+        Task.due_date >= datetime.utcnow(),          # 1. Task is due now or in the future
+        Task.due_date <= datetime.utcnow() + timedelta(hours=1),  # 2. Task is due within the next hour
+        Task.reminder_sent == False                  # 3. Reminder has not been sent for this task
+    ).all()
+```
+
+### Explanation:
+1. **`Task.due_date >= datetime.utcnow()`**:
+   - This condition ensures that the tasks returned by the query have a `due_date` that is either equal to or later than the current time (`datetime.utcnow()`).
+   - In other words, only tasks that are due from now onwards are considered.
+
+2. **`Task.due_date <= datetime.utcnow() + timedelta(hours=1)`**:
+   - This adds a time constraint. It ensures that the `due_date` is less than or equal to one hour from the current time (`datetime.utcnow() + timedelta(hours=1)`).
+   - So, this part of the query selects tasks that are due within the next hour.
+
+3. **`Task.reminder_sent == False`**:
+   - This condition ensures that only tasks for which the reminder has not already been sent are included. 
+   - This prevents sending multiple reminders for the same task.
+
+### Combined Logic:
+- The query fetches tasks that:
+  - Are due sometime between the current time and the next hour.
+  - Have not yet had their reminders sent (`reminder_sent == False`).
+
+### Example Scenario:
+- Suppose it's currently 2:00 PM (UTC). The query will return tasks where:
+  - The `due_date` is between 2:00 PM and 3:00 PM.
+  - The `reminder_sent` flag is `False`, meaning no reminder has been sent yet.
+
+This logic is useful for scheduling reminders for tasks that are upcoming in the near future, within a defined window (1 hour in this case).
+
